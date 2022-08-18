@@ -1,9 +1,17 @@
 package io.yapix.parse.parser;
 
+import static io.yapix.parse.constant.WsConstants.OpRequestDeleteMapping;
+import static io.yapix.parse.constant.WsConstants.OpRequestSaveMapping;
+import static io.yapix.parse.constant.WsConstants.OpRequestSelectMapping;
+import static io.yapix.parse.constant.WsConstants.OpRequestUpdateMapping;
+import static io.yapix.parse.constant.WsConstants.OpRequestUploadMapping;
+
 import com.google.common.collect.Lists;
 import com.intellij.codeInsight.AnnotationUtil;
 import com.intellij.psi.PsiAnnotation;
 import com.intellij.psi.PsiMethod;
+import io.yapix.base.util.JsonUtils;
+import io.yapix.base.util.NotificationUtils;
 import io.yapix.model.HttpMethod;
 import io.yapix.parse.constant.SpringConstants;
 import io.yapix.parse.constant.WxbConstants;
@@ -11,10 +19,14 @@ import io.yapix.parse.model.PathParseInfo;
 import io.yapix.parse.util.PathUtils;
 import io.yapix.parse.util.PsiAnnotationUtils;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
+import io.yapix.parse.util.WsUtils;
 import org.apache.commons.collections.CollectionUtils;
 
 /**
@@ -24,12 +36,20 @@ public class PathParser {
 
     private static final Map<HttpMethod, String> simpleMappings = new LinkedHashMap<>();
 
+    private static final Set<String> wsMappings = new LinkedHashSet<>();
+
     static {
         simpleMappings.put(HttpMethod.GET, SpringConstants.GetMapping);
         simpleMappings.put(HttpMethod.POST, SpringConstants.PostMapping);
         simpleMappings.put(HttpMethod.PUT, SpringConstants.PutMapping);
         simpleMappings.put(HttpMethod.DELETE, SpringConstants.DeleteMapping);
         simpleMappings.put(HttpMethod.PATCH, SpringConstants.PatchMapping);
+        //ws
+        wsMappings.add(OpRequestSelectMapping);
+        wsMappings.add(OpRequestSaveMapping);
+        wsMappings.add(OpRequestUpdateMapping);
+        wsMappings.add(OpRequestDeleteMapping);
+        wsMappings.add(OpRequestUploadMapping);
     }
 
     /**
@@ -38,13 +58,20 @@ public class PathParser {
     public static PathParseInfo parse(PsiMethod method) {
         PathParseInfo pathInfo = null;
         PsiAnnotation requestMapping = PsiAnnotationUtils.getAnnotation(method, SpringConstants.RequestMapping);
-        if (requestMapping != null) {
+        if (requestMapping != null && !WsUtils.isWsMethod(method)) {
             pathInfo = parseRequestMappingAnnotation(requestMapping);
         } else {
             for (Entry<HttpMethod, String> item : simpleMappings.entrySet()) {
                 PsiAnnotation annotation = PsiAnnotationUtils.getAnnotation(method, item.getValue());
                 if (annotation != null) {
                     pathInfo = parseSimpleMappingAnnotation(item.getKey(), annotation);
+                    break;
+                }
+            }
+            for (String item : wsMappings) {
+                PsiAnnotation annotation = PsiAnnotationUtils.getAnnotation(method, item);
+                if (annotation != null) {
+                    pathInfo = parseWsMappingAnnotation(item);
                     break;
                 }
             }
@@ -109,6 +136,14 @@ public class PathParser {
         return info;
     }
 
+    public static PathParseInfo parseWsMappingAnnotation(String item) {
+        List<String> paths = getWsPaths(item);
+        PathParseInfo info = new PathParseInfo();
+        info.setPaths(paths);
+        info.setMethod(HttpMethod.POST);
+        return info;
+    }
+
     private static List<String> getPaths(PsiAnnotation annotation) {
         List<String> paths = PsiAnnotationUtils.getStringArrayAttribute(annotation, "path");
         if (paths.isEmpty()) {
@@ -122,5 +157,30 @@ public class PathParser {
         return paths;
     }
 
-
+    private static List<String> getWsPaths(String item) {
+        List<String> paths;
+        switch (item) {
+            case OpRequestSelectMapping:
+                paths = Lists.newArrayList("select" + UUID.randomUUID().toString().substring(0, 5));
+                break;
+            case OpRequestDeleteMapping:
+                paths = Lists.newArrayList("delete" + UUID.randomUUID().toString().substring(0, 5));
+                break;
+            case OpRequestSaveMapping:
+                paths = Lists.newArrayList("save" + UUID.randomUUID().toString().substring(0, 5));
+                break;
+            case OpRequestUpdateMapping:
+                paths = Lists.newArrayList("update" + UUID.randomUUID().toString().substring(0, 5));
+                break;
+            case OpRequestUploadMapping:
+                paths = Lists.newArrayList("upload" + UUID.randomUUID().toString().substring(0, 5));
+                break;
+            default:
+                paths = Lists.newArrayList();
+                break;
+        }
+        // 清除路径变量正则部分
+        paths = paths.stream().map(PathUtils::clearPathPattern).collect(Collectors.toList());
+        return paths;
+    }
 }

@@ -23,7 +23,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class YapiUploadAction extends AbstractAction {
 
-    public static final String ACTION_TEXT = "Upload To YApi";
+    public static final String ACTION_TEXT = "上传到yapi";
 
     @Override
     public boolean before(AnActionEvent event, YapixConfig config) {

@@ -69,7 +69,7 @@ public abstract class AbstractAction extends AnAction {
     }
 
     @Override
-    public void actionPerformed(AnActionEvent event) {
+    public void actionPerformed(@NotNull AnActionEvent event) {
         // make sure documents all saved before refresh v-files in sync/recursive.
         FileDocumentManager.getInstance().saveAllDocuments();
         EventData data = EventData.of(event);

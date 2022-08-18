@@ -17,6 +17,8 @@ import com.intellij.psi.PsiType;
 import com.intellij.psi.javadoc.PsiDocComment;
 import com.intellij.psi.javadoc.PsiDocTag;
 import com.intellij.psi.javadoc.PsiDocToken;
+import io.yapix.base.util.NotificationUtils;
+import io.yapix.config.DefaultConstants;
 import io.yapix.model.Value;
 import io.yapix.parse.constant.DocumentTags;
 import io.yapix.parse.constant.JavaConstants;
@@ -27,6 +29,7 @@ import io.yapix.parse.util.PsiLinkUtils;
 import io.yapix.parse.util.PsiSwaggerUtils;
 import io.yapix.parse.util.PsiTypeUtils;
 import io.yapix.parse.util.StringUtilsExt;
+import io.yapix.parse.util.WsUtils;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -74,6 +77,9 @@ public class ParseHelper {
     public String getApiSummary(PsiMethod psiMethod) {
         // 优先级: swagger注解@ApiOperation > 文档注释标记@description >  文档注释第一行
         String summary = PsiSwaggerUtils.getApiSummary(psiMethod);
+        if (summary == null) {
+            summary = WsUtils.getApiSummary(psiMethod);
+        }
 
         PsiDocComment comment = psiMethod.getDocComment();
         if (comment != null) {

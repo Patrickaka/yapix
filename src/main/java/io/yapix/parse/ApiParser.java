@@ -13,11 +13,14 @@ import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiModifier;
 import com.intellij.psi.PsiModifierList;
+import io.yapix.base.util.JsonUtils;
+import io.yapix.base.util.NotificationUtils;
 import io.yapix.config.YapixConfig;
 import io.yapix.model.Api;
 import io.yapix.model.Property;
 import io.yapix.parse.constant.DocumentTags;
 import io.yapix.parse.constant.SpringConstants;
+import io.yapix.parse.constant.WsConstants;
 import io.yapix.parse.model.ClassParseData;
 import io.yapix.parse.model.ControllerApiInfo;
 import io.yapix.parse.model.MethodParseData;
@@ -30,6 +33,7 @@ import io.yapix.parse.parser.ResponseParser;
 import io.yapix.parse.util.PathUtils;
 import io.yapix.parse.util.PsiAnnotationUtils;
 import io.yapix.parse.util.PsiUtils;
+import io.yapix.parse.util.WsUtils;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -74,9 +78,14 @@ public class ApiParser {
         if (!isNeedParseController(psiClass) || findTagByName(psiClass, DocumentTags.Ignore) != null) {
             return ClassParseData.invalid(psiClass);
         }
-
+        List<PsiMethod> methods;
         // 获得待处理方法
-        List<PsiMethod> methods = filterPsiMethods(psiClass);
+        if (WsUtils.isWsController(psiClass)) {
+            methods = filterWsPsiMethods(psiClass);
+        } else {
+            methods = filterPsiMethods(psiClass);
+        }
+
         if (methods.isEmpty()) {
             return ClassParseData.valid(psiClass);
         }
@@ -84,6 +93,7 @@ public class ApiParser {
         // 解析
         ControllerApiInfo controllerApiInfo = parseController(psiClass);
         List<MethodParseData> methodDataList = Lists.newArrayListWithExpectedSize(methods.size());
+        NotificationUtils.notifyWarning(JsonUtils.toJson(methods.size()));
         for (PsiMethod method : methods) {
             MethodParseData methodData = parseMethod(controllerApiInfo, method);
             methodDataList.add(methodData);
@@ -136,16 +146,34 @@ public class ApiParser {
                 .collect(Collectors.toList());
     }
 
+    private List<PsiMethod> filterWsPsiMethods(PsiClass psiClass) {
+        return Arrays.stream(psiClass.getMethods())
+                .filter(m -> {
+                    PsiModifierList modifier = m.getModifierList();
+                    return !modifier.hasModifierProperty(PsiModifier.PRIVATE)
+                            && !modifier.hasModifierProperty(PsiModifier.STATIC);
+                })
+                .collect(Collectors.toList());
+    }
+
     /**
      * 解析类级别信息
      */
     private ControllerApiInfo parseController(PsiClass controller) {
         String path = null;
-        PsiAnnotation annotation = PsiAnnotationUtils.getAnnotationIncludeExtends(controller,
-                SpringConstants.RequestMapping);
-        if (annotation != null) {
-            PathParseInfo mapping = PathParser.parseRequestMappingAnnotation(annotation);
-            path = mapping.getPath();
+        if (WsUtils.isWsController(controller)) {
+            PsiAnnotation annotation = PsiAnnotationUtils.getAnnotationIncludeExtends(controller,
+                    WsConstants.WSRestController);
+            if (annotation != null) {
+                path = PsiAnnotationUtils.getStringAttributeValueByAnnotation(annotation, "path");
+            }
+        } else {
+            PsiAnnotation annotation = PsiAnnotationUtils.getAnnotationIncludeExtends(controller,
+                    SpringConstants.RequestMapping);
+            if (annotation != null) {
+                PathParseInfo mapping = PathParser.parseRequestMappingAnnotation(annotation);
+                path = mapping.getPath();
+            }
         }
         ControllerApiInfo info = new ControllerApiInfo();
         info.setPath(PathUtils.path(path));

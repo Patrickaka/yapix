@@ -14,6 +14,9 @@ import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiAnnotation;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiParameter;
+import io.yapix.base.util.JsonUtils;
+import io.yapix.base.util.NotificationUtils;
+import io.yapix.config.DefaultConstants;
 import io.yapix.config.YapixConfig;
 import io.yapix.config.YapixConfig.RequestBodyParamType;
 import io.yapix.model.DataTypes;
@@ -26,6 +29,7 @@ import io.yapix.parse.model.RequestParseInfo;
 import io.yapix.parse.util.PsiAnnotationUtils;
 import io.yapix.parse.util.PsiDocCommentUtils;
 import io.yapix.parse.util.PsiTypeUtils;
+import io.yapix.parse.util.WsUtils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -67,11 +71,11 @@ public class RequestParser {
      */
     public RequestParseInfo parse(PsiMethod method, HttpMethod httpMethod) {
         List<PsiParameter> parameters = filterPsiParameters(method);
+
         // 解析参数: 请求体类型，普通参数，请求体
-        RequestBodyType requestBodyType = getRequestBodyType(parameters, httpMethod);
+        RequestBodyType requestBodyType = getRequestBodyType(method, parameters, httpMethod);
         List<Property> requestParameters = getRequestParameters(method, parameters);
         List<Property> requestBody = getRequestBody(method, parameters, httpMethod, requestParameters);
-
         // 数据填充
         RequestParseInfo info = new RequestParseInfo();
         info.setParameters(requestParameters);
@@ -90,11 +94,11 @@ public class RequestParser {
     /**
      * 解析请求方式
      */
-    private RequestBodyType getRequestBodyType(List<PsiParameter> parameters, HttpMethod method) {
+    private RequestBodyType getRequestBodyType(PsiMethod psiMethod, List<PsiParameter> parameters, HttpMethod method) {
         if (!method.isAllowBody()) {
             return null;
         }
-        boolean requestBody = parameters.stream().anyMatch(p -> p.getAnnotation(RequestBody) != null);
+        boolean requestBody = WsUtils.isWsMethod(psiMethod) || parameters.stream().anyMatch(p -> p.getAnnotation(RequestBody) != null);
         if (requestBody) {
             return RequestBodyType.json;
         }
@@ -139,11 +143,14 @@ public class RequestParser {
             return Lists.newArrayList();
         }
         Map<String, String> paramTagMap = PsiDocCommentUtils.getTagParamTextMap(method);
-
+        boolean isWsMethod = WsUtils.isWsMethod(method);
         // Json请求: 找到@RequestBody注解参数, 自定义@RequestBody类型
         Property jsonBodyItem = null;
         PsiParameter bp = parameters.stream()
                 .filter(p -> p.getAnnotation(RequestBody) != null).findFirst().orElse(null);
+        if (isWsMethod) {
+            bp = parameters.get(0);
+        }
         if (bp != null) {
             jsonBodyItem = kernelParser.parseType(bp.getType(), bp.getType().getCanonicalText());
             // 方法上的参数描述
@@ -151,6 +158,14 @@ public class RequestParser {
             if (StringUtils.isNotEmpty(parameterDescription)) {
                 jsonBodyItem.setDescription(parameterDescription);
             }
+        }
+        if (isWsMethod) {
+            Property wsProperty = WsUtils.getWsProperty(method);
+            Property data = wsProperty.getProperties().get("data");
+            assert jsonBodyItem != null;
+            data.setProperties(jsonBodyItem.getProperties());
+            wsProperty.getProperties().put("data", data);
+            return Lists.newArrayList(wsProperty);
         }
         List<ParameterAnnotationPair> requestBodyParamParameters = getRequestBodyParamParameters(parameters);
         if (!requestBodyParamParameters.isEmpty()) {
@@ -230,7 +245,6 @@ public class RequestParser {
                 })
                 .filter(p -> !PsiTypeUtils.isFileIncludeArray(p.getType()))
                 .collect(Collectors.toList());
-
         // 获取方法@param标记信息
         Map<String, String> paramTagMap = PsiDocCommentUtils.getTagParamTextMap(method);
 
@@ -347,6 +361,4 @@ public class RequestParser {
         private PsiParameter parameter;
         private PsiAnnotation annotation;
     }
-
-
 }

@@ -87,6 +87,14 @@ public class PsiAnnotationUtils {
         return getStringAttributeValueByAnnotation(annotation, "value");
     }
 
+    public static String getWsDescByAnnotation(PsiAnnotation annotation) {
+        return getStringAttributeValueByAnnotation(annotation, "desc");
+    }
+
+    public static String getWsOpByAnnotation(PsiAnnotation annotation) {
+        return getStringAttributeValueByAnnotation(annotation, "op");
+    }
+
     public static List<String> getStringArrayAttribute(PsiAnnotation annotation, String attribute) {
         PsiAnnotationMemberValue memberValue = annotation.findAttributeValue(attribute);
         if (memberValue == null) {
