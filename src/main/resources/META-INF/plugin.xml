@@ -1,11 +1,12 @@
 <idea-plugin>
     <id>yapix</id>
-    <name>Yapi X</name>
+    <name>Yapi X -- WS</name>
     <vendor url="https://github.com/jetplugins">Jetplugins</vendor>
 
     <description><![CDATA[
         Generate API documents to any place: YApi, Rap2, Eolinker, etc.<br>
         一键生成接口文档, 上传到YApi, Rap2, Eolinker等<br>
+        WS定制版<br>
         <p>
             <a href="https://github.com/jetplugins/yapix">GitHub</a> |
             <a href="https://github.com/jetplugins/yapix/issues">Issues</a>
