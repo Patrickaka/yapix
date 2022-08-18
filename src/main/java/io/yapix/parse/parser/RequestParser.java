@@ -14,9 +14,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiAnnotation;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiParameter;
-import io.yapix.base.util.JsonUtils;
-import io.yapix.base.util.NotificationUtils;
-import io.yapix.config.DefaultConstants;
 import io.yapix.config.YapixConfig;
 import io.yapix.config.YapixConfig.RequestBodyParamType;
 import io.yapix.model.DataTypes;
@@ -74,7 +71,7 @@ public class RequestParser {
 
         // 解析参数: 请求体类型，普通参数，请求体
         RequestBodyType requestBodyType = getRequestBodyType(method, parameters, httpMethod);
-        List<Property> requestParameters = getRequestParameters(method, parameters);
+        List<Property> requestParameters = WsUtils.isWsMethod(method) ? new ArrayList<>() : getRequestParameters(method, parameters);
         List<Property> requestBody = getRequestBody(method, parameters, httpMethod, requestParameters);
         // 数据填充
         RequestParseInfo info = new RequestParseInfo();
